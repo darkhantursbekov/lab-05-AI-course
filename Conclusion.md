@@ -1,0 +1,13 @@
+# Conclusion
+
+## 1. What the harness changed
+
+In my run the bare agent answered 16 of 24 correctly, with 4 wrong and 4 no answer. Layer 1 moved this to 18 correct, 6 wrong, 0 no answer: the four alias questions stopped crashing and the model could retry, but three of those retries were wrong (q21, q22, q24), so correctness rose less than it looks. Layer 2 changed nothing at all — same 18/6/0 — which means the 5-step budget never fired on these 24 questions. Layer 3 kept 18 correct but cut wrong from 6 to 4 and pushed two answers to "no answer": q18 became UNVERIFIED and q22 stayed unanswered. The trace of q18 shows why grounding is not correctness: the model called `calculate` with `(16.1 - 10.6)/100` and got 0.055, then wrote "0.55 percentage points". The number 0.55 never appeared in a tool output, so the harness rejected it. Four answers were still wrong with every layer on: q08, q11, q17, q21. A grounded number can still be the wrong number.
+
+## 2. What the notes did
+
+The notes raised the alias questions from mostly wrong to correct — q21 went from wrong to correct and q22 from no answer to correct — because the model now knew that "Nur-Sultan" is Astana and "Chimkent" is Shymkent. But the same notes cost a lot: layer 3 alone was 18 correct, 4 wrong, 2 no answer; with my notes it became 14 correct, 2 wrong, 8 no answer. Seven questions lost their correct answer (q03, q04, q12, q13, q15, q17, q20) and never recovered. I did not investigate each one, but the pattern is clear: adding lines to the system prompt for every question changes what the model does even on questions the notes were not meant to touch. Wrong answers fell from 4 to 2, but no-answer rose from 2 to 8, so the notes made the agent safer and much less useful. Carrying these notes also cost tokens on every question: model calls went from 74 to 83 and tokens from 60,116 to 73,135.
+
+## 3. Workflow, agent and what I would ship
+
+On the 15 fixed-shape questions the workflow got 13 correct, 0 wrong, 2 no answer and used 15 model calls and 3,852 tokens. The bare agent on the same 15 got 9 correct, 2 wrong, 4 no answer, with 26 model calls and 19,835 tokens. The workflow was both more accurate and about five times cheaper in tokens, and its two failures were honest: q21 and q22 both stopped at `Unknown region 'Nur-Sultan'` and `'Chimkent'` because it has no retry path. The agent is the only option for the 9 open questions, where it scored 7 correct and 2 wrong with no workflow possible. If I had to ship one thing, I would ship the workflow where the shape is known and the layer-3 agent only for open questions. My own notes made things worse overall, so I would not ship them without re-measuring.
